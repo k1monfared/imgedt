@@ -1,71 +1,77 @@
 - Project Status
-    - Last Updated: YYYY-MM-DD
-    - Development Mode: [Claude Code | Manual | Hybrid]
-    - Stage: Initial Setup
-    - Next Milestone: [Description of next goal]
+    - Last Updated: 2026-04-01
+    - Development Mode: Claude Code
+    - Stage: POC
+    - Next Milestone: Test on Android device, validate OpenGL rendering
 
 - Development Stages
     - [x] Initial Setup
-        - Created: YYYY-MM-DD
+        - Created: 2026-04-01
         - Repository initialized
-        - Basic structure in place
+        - Two-module Gradle project (app + editor library)
         - Template copied from claude_code_project_template
-    - [] Proof of Concept (POC)
-        - Target: YYYY-MM-DD
+    - [x] Proof of Concept (POC)
+        - Target: 2026-04-01
         - Goal: Validate core concept and technology choices
         - Success criteria:
-            - [] Key feature X works
-            - [] Technology stack validated
-            - [] Basic end-to-end flow demonstrated
+            - [x] OpenGL ES 2.0 filter pipeline working
+            - [x] Telegram GLSL shaders ported
+            - [x] APK builds successfully
     - [] Minimum Viable Product (MVP)
         - Goal: First usable version with core features
         - Core features:
-            - [] Feature A
-            - [] Feature B
-            - [] Feature C
+            - [x] Photo adjustments (10 parameters with OpenGL)
+            - [x] Crop and rotate with aspect ratios
+            - [x] Freehand drawing with color/size/undo
+            - [] Test on physical Android device
+            - [] Fix any rendering issues
         - Known issues:
-            - [List bugs that block demo/production]
+            - Needs testing on real device
     - [] Beta Release
         - Goal: Feature-complete but needs polish
         - Missing features:
-            - [] Feature X
-            - [] Feature Y
-            - [] Feature Z
+            - [] Curves (RGB channel control)
+            - [] Blur (radial and linear)
+            - [] Text overlays
+            - [] Neon brush
         - Active users: N/A
-        - Stability: [Assessment]
+        - Stability: Not yet tested on device
     - [] Production Ready
-        - Goal: Stable, documented, tested
-        - Deployment status: [Not deployed | Staging | Production]
-        - Documentation: [Complete | In Progress | Needed]
-        - Tests: [Coverage percentage or status]
     - [] Maintenance Mode
-        - Core complete and stable
-        - Nice-to-haves queued:
-            - Enhancement A
-            - Enhancement B
-            - Enhancement C
 
 - Technical Details
     - Tech Stack:
-        - [List technologies, languages, frameworks]
+        - Java
+        - Android SDK (minSdk 21, targetSdk 35)
+        - OpenGL ES 2.0 for filter rendering
+        - Gradle 8.7, AGP 8.6.1
     - Key Files:
-        - [Important files and their purposes]
+        - editor/src/main/java/com/photoeditor/editor/EditorActivity.java: Main editor screen
+        - editor/src/main/java/com/photoeditor/editor/filter/FilterRenderer.java: OpenGL rendering pipeline
+        - editor/src/main/java/com/photoeditor/editor/filter/FilterShaders.java: GLSL shader code
+        - editor/src/main/java/com/photoeditor/editor/crop/CropActivity.java: Crop and rotate screen
+        - editor/src/main/java/com/photoeditor/editor/paint/PaintActivity.java: Drawing screen
     - Architecture Notes:
-        - [Key design decisions]
-        - [Patterns used]
-        - [Dependencies]
+        - Two-module structure: app (thin shell) + editor (library module)
+        - Filter pipeline: multi-pass OpenGL (sharpen pass, tools pass, display pass)
+        - Crop: Canvas-based with CropAreaView overlay and CropView for pan/zoom
+        - Paint: Canvas-based stamp rendering with undo stack
+        - Algorithms ported from Telegram (GPL v2)
 
 - Current Focus
     - Active Tasks:
-        - [] Task 1
-        - [] Task 2
+        - [] Test on Android device
+        - [] Fix rendering issues
     - Blockers:
-        - [Any blocking issues]
+        - None
     - Recent Progress:
-        - YYYY-MM-DD: [What was accomplished]
-        - YYYY-MM-DD: [What was accomplished]
+        - 2026-04-01: Project created, OpenGL filter pipeline built
+        - 2026-04-01: Crop/rotate and paint/draw features added
+        - 2026-04-01: APK builds successfully (7.2 MB)
 
 - Notes
+    - Telegram reference repo at telegram-reference/ (not committed)
+    - License: GPL v2 (required due to Telegram algorithm derivation)
     - Use loglog format for all documentation
     - Update "Last Updated" date when making changes
     - Run /home/k1/public/update_project_status.sh after updates

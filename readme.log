@@ -1,0 +1,53 @@
+- Mobile Photo Editor
+    - status: POC | mode: Claude Code | updated: 2026-04-01
+    - A standalone Android photo editor with Telegram-style editing capabilities
+    - License: GPL v2 (algorithms derived from Telegram)
+
+- Features
+    - Photo adjustments (OpenGL ES 2.0):
+        - Exposure, Contrast, Saturation, Warmth
+        - Highlights, Shadows, Sharpen, Fade
+        - Grain, Vignette
+    - Crop and rotate:
+        - Freeform, 1:1, 4:3, 3:4, 16:9, 9:16 aspect ratios
+        - Free rotation (-45 to +45 degrees) with rotation wheel
+        - 90-degree rotation and mirror
+        - Pan and pinch-to-zoom
+    - Drawing:
+        - Freehand brush with 8 color options
+        - Adjustable brush size
+        - Eraser tool
+        - Undo support (up to 20 steps)
+
+- Architecture
+    - Two modules:
+        - app/: Thin shell with photo picker and permissions
+        - editor/: Photo editor library module
+    - Filter pipeline:
+        - OpenGL ES 2.0 with GLSL shaders ported from Telegram
+        - Multi-pass rendering: sharpen, tools (all adjustments), display
+        - Real-time preview on TextureView
+    - Crop:
+        - CropAreaView (overlay with draggable handles)
+        - CropView (image display with pan/zoom)
+        - CropRotationWheel (fine rotation control)
+    - Paint:
+        - Canvas-based stamp rendering
+        - Undo via bitmap snapshots
+
+- Building
+    - Requirements:
+        - Android SDK (platform 35, build tools 36.1.0)
+        - JDK 8+
+    - Build:
+        - ./gradlew assembleDebug
+    - Output:
+        - app/build/outputs/apk/debug/app-debug.apk
+
+- Roadmap
+    - [] Test on physical Android device
+    - [] Curves (RGB channel-level control)
+    - [] Blur (radial and linear)
+    - [] Text overlays with multiple fonts
+    - [] Neon brush effect
+    - [] Package as AAR library for embedding in other apps

@@ -2,6 +2,23 @@ node_modules/
 .env
 .DS_Store
 
+# Android
+*.iml
+.gradle/
+/local.properties
+.idea/
+build/
+app/build/
+editor/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# Telegram reference (not part of our code)
+telegram-reference/
+
 # Claude Code
 .claude/cache/
 .mcp/logs/
