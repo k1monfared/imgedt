@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -17,9 +18,9 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.SeekBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,7 +34,7 @@ import java.io.OutputStream;
 
 /**
  * Main photo editor activity. Displays the image with OpenGL-based filter preview
- * and adjustment tools (exposure, contrast, saturation, warmth, etc.).
+ * and a tab-based bottom panel (Crop / Draw / Tune) following Telegram's layout.
  */
 public class EditorActivity extends Activity {
 
@@ -41,18 +42,18 @@ public class EditorActivity extends Activity {
     private static final int REQUEST_CROP = 100;
     private static final int REQUEST_PAINT = 101;
 
+    private static final int BOTTOM_PANEL_HEIGHT = 240;
+
     private Uri imageUri;
     private TextureView previewView;
     private FilterRenderer renderer;
     private FilterParams filterParams;
     private Bitmap sourceBitmap;
 
-    private SeekBar adjustmentSlider;
-    private TextView sliderValueText;
-    private TextView currentToolLabel;
-    private LinearLayout toolsContainer;
-
-    private int selectedTool = -1;
+    private TuneToolRow[] tuneRows;
+    private ImageView cropTab;
+    private ImageView drawTab;
+    private ImageView tuneTab;
 
     private static final String[] TOOL_NAMES = {
             "Exposure", "Contrast", "Saturation", "Warmth",
@@ -78,7 +79,7 @@ public class EditorActivity extends Activity {
         previewView = new TextureView(this);
         FrameLayout.LayoutParams previewLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        previewLp.bottomMargin = dp(200);
+        previewLp.bottomMargin = dp(BOTTOM_PANEL_HEIGHT);
         root.addView(previewView, previewLp);
 
         // Bottom panel
@@ -86,122 +87,26 @@ public class EditorActivity extends Activity {
         bottomPanel.setOrientation(LinearLayout.VERTICAL);
         bottomPanel.setBackgroundColor(0xE0000000);
         FrameLayout.LayoutParams bottomLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(200));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(BOTTOM_PANEL_HEIGHT));
         bottomLp.gravity = Gravity.BOTTOM;
         root.addView(bottomPanel, bottomLp);
 
-        // Current tool label and value
-        LinearLayout labelRow = new LinearLayout(this);
-        labelRow.setOrientation(LinearLayout.HORIZONTAL);
-        labelRow.setGravity(Gravity.CENTER_HORIZONTAL);
-        labelRow.setPadding(0, dp(8), 0, 0);
+        // Tune panel (scrollable list of adjustment rows)
+        bottomPanel.addView(buildTunePanel(), new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
 
-        currentToolLabel = new TextView(this);
-        currentToolLabel.setTextColor(Color.WHITE);
-        currentToolLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        currentToolLabel.setText("Select a tool");
-        labelRow.addView(currentToolLabel);
-
-        sliderValueText = new TextView(this);
-        sliderValueText.setTextColor(0xFF4FC3F7);
-        sliderValueText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        sliderValueText.setPadding(dp(8), 0, 0, 0);
-        labelRow.addView(sliderValueText);
-
-        bottomPanel.addView(labelRow, new LinearLayout.LayoutParams(
+        // Action buttons (cancel / reset / save)
+        bottomPanel.addView(buildActionRow(), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // Slider
-        adjustmentSlider = new SeekBar(this);
-        adjustmentSlider.setMax(200);
-        adjustmentSlider.setProgress(100);
-        adjustmentSlider.setPadding(dp(16), dp(4), dp(16), dp(4));
-        adjustmentSlider.setVisibility(View.INVISIBLE);
-        adjustmentSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser && selectedTool >= 0) {
-                    applySliderValue(progress);
-                }
-            }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        bottomPanel.addView(adjustmentSlider, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // Tool buttons (horizontal scroll)
-        HorizontalScrollView toolsScroll = new HorizontalScrollView(this);
-        toolsScroll.setHorizontalScrollBarEnabled(false);
-        toolsContainer = new LinearLayout(this);
-        toolsContainer.setOrientation(LinearLayout.HORIZONTAL);
-        toolsContainer.setPadding(dp(8), dp(4), dp(8), dp(4));
-        toolsScroll.addView(toolsContainer);
-        bottomPanel.addView(toolsScroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // Crop button (first in tool list)
-        TextView cropBtn = new TextView(this);
-        cropBtn.setText("Crop");
-        cropBtn.setTextColor(0xFFFF9800);
-        cropBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        cropBtn.setPadding(dp(12), dp(10), dp(12), dp(10));
-        cropBtn.setGravity(Gravity.CENTER);
-        cropBtn.setOnClickListener(v -> launchCrop());
-        toolsContainer.addView(cropBtn);
-
-        // Draw button
-        TextView drawBtn = new TextView(this);
-        drawBtn.setText("Draw");
-        drawBtn.setTextColor(0xFFFF9800);
-        drawBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        drawBtn.setPadding(dp(12), dp(10), dp(12), dp(10));
-        drawBtn.setGravity(Gravity.CENTER);
-        drawBtn.setOnClickListener(v -> launchPaint());
-        toolsContainer.addView(drawBtn);
-
-        for (int i = 0; i < TOOL_NAMES.length; i++) {
-            addToolButton(i, TOOL_NAMES[i]);
-        }
-
-        // Action buttons (cancel / done)
-        LinearLayout actionRow = new LinearLayout(this);
-        actionRow.setOrientation(LinearLayout.HORIZONTAL);
-        actionRow.setGravity(Gravity.CENTER);
-        actionRow.setPadding(0, dp(4), 0, dp(8));
-
-        TextView cancelBtn = createActionButton("Cancel");
-        cancelBtn.setOnClickListener(v -> finish());
-        actionRow.addView(cancelBtn);
-
-        View spacer = new View(this);
-        actionRow.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1));
-
-        TextView resetBtn = createActionButton("Reset");
-        resetBtn.setOnClickListener(v -> {
-            filterParams.reset();
-            selectedTool = -1;
-            adjustmentSlider.setVisibility(View.INVISIBLE);
-            currentToolLabel.setText("Select a tool");
-            sliderValueText.setText("");
-            renderer.requestRender();
-        });
-        actionRow.addView(resetBtn);
-
-        View spacer2 = new View(this);
-        actionRow.addView(spacer2, new LinearLayout.LayoutParams(0, 1, 1));
-
-        TextView doneBtn = createActionButton("Save");
-        doneBtn.setTextColor(0xFF4FC3F7);
-        doneBtn.setOnClickListener(v -> saveResult());
-        actionRow.addView(doneBtn);
-
-        bottomPanel.addView(actionRow, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        // Tab bar (Crop / Draw / Tune)
+        bottomPanel.addView(buildTabBar(), new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
 
         setContentView(root);
+
+        // Select Tune tab by default
+        selectTab(tuneTab);
 
         // Load the image
         loadImage();
@@ -211,7 +116,7 @@ public class EditorActivity extends Activity {
             if (sourceBitmap == null) return;
             float bitmapAspect = (float) sourceBitmap.getWidth() / sourceBitmap.getHeight();
             int availW = root.getWidth();
-            int availH = root.getHeight() - dp(200); // minus bottom panel
+            int availH = root.getHeight() - dp(BOTTOM_PANEL_HEIGHT);
             if (availW <= 0 || availH <= 0) return;
             float areaAspect = (float) availW / availH;
 
@@ -257,6 +162,114 @@ public class EditorActivity extends Activity {
         });
     }
 
+    private ScrollView buildTunePanel() {
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setVerticalScrollBarEnabled(false);
+
+        LinearLayout tuneList = new LinearLayout(this);
+        tuneList.setOrientation(LinearLayout.VERTICAL);
+        tuneList.setPadding(0, dp(4), 0, dp(4));
+        scrollView.addView(tuneList, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        tuneRows = new TuneToolRow[TOOL_NAMES.length];
+        for (int i = 0; i < TOOL_NAMES.length; i++) {
+            boolean centered = i <= 5;
+            float initialValue = getToolValue(i);
+            TuneToolRow row = new TuneToolRow(this, i, TOOL_NAMES[i], centered,
+                    initialValue, (toolIndex, value) -> {
+                setToolValue(toolIndex, value);
+                if (renderer != null) {
+                    renderer.requestRender();
+                }
+            });
+            tuneRows[i] = row;
+            tuneList.addView(row, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+
+        return scrollView;
+    }
+
+    private LinearLayout buildActionRow() {
+        LinearLayout actionRow = new LinearLayout(this);
+        actionRow.setOrientation(LinearLayout.HORIZONTAL);
+        actionRow.setGravity(Gravity.CENTER);
+        actionRow.setPadding(0, dp(4), 0, dp(4));
+
+        TextView cancelBtn = createActionButton("Cancel");
+        cancelBtn.setOnClickListener(v -> finish());
+        actionRow.addView(cancelBtn);
+
+        View spacer = new View(this);
+        actionRow.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1));
+
+        TextView resetBtn = createActionButton("Reset");
+        resetBtn.setOnClickListener(v -> {
+            filterParams.reset();
+            for (TuneToolRow row : tuneRows) {
+                row.resetValue();
+            }
+            if (renderer != null) {
+                renderer.requestRender();
+            }
+        });
+        actionRow.addView(resetBtn);
+
+        View spacer2 = new View(this);
+        actionRow.addView(spacer2, new LinearLayout.LayoutParams(0, 1, 1));
+
+        TextView doneBtn = createActionButton("Save");
+        doneBtn.setTextColor(0xFF4FC3F7);
+        doneBtn.setOnClickListener(v -> saveResult());
+        actionRow.addView(doneBtn);
+
+        return actionRow;
+    }
+
+    private LinearLayout buildTabBar() {
+        LinearLayout tabBar = new LinearLayout(this);
+        tabBar.setOrientation(LinearLayout.HORIZONTAL);
+        tabBar.setGravity(Gravity.CENTER);
+        tabBar.setBackgroundColor(0x20FFFFFF);
+
+        // Tab order matches Telegram: Crop, Draw (Paint), Tune (Settings)
+        cropTab = createTabIcon(R.drawable.ic_tab_crop);
+        cropTab.setOnClickListener(v -> {
+            selectTab(cropTab);
+            launchCrop();
+        });
+        tabBar.addView(cropTab, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+        drawTab = createTabIcon(R.drawable.ic_tab_draw);
+        drawTab.setOnClickListener(v -> {
+            selectTab(drawTab);
+            launchPaint();
+        });
+        tabBar.addView(drawTab, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+        tuneTab = createTabIcon(R.drawable.ic_tab_tune);
+        tuneTab.setOnClickListener(v -> selectTab(tuneTab));
+        tabBar.addView(tuneTab, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+        return tabBar;
+    }
+
+    private ImageView createTabIcon(int drawableRes) {
+        ImageView icon = new ImageView(this);
+        icon.setScaleType(ImageView.ScaleType.CENTER);
+        icon.setImageResource(drawableRes);
+        icon.setPadding(0, dp(4), 0, dp(4));
+        return icon;
+    }
+
+    private void selectTab(ImageView selected) {
+        cropTab.setColorFilter(null);
+        drawTab.setColorFilter(null);
+        tuneTab.setColorFilter(null);
+        selected.setColorFilter(0xFF4FC3F7, PorterDuff.Mode.SRC_IN);
+    }
+
     private void launchCrop() {
         if (imageUri == null) return;
         Intent cropIntent = new Intent(this, CropActivity.class);
@@ -294,6 +307,8 @@ public class EditorActivity extends Activity {
                 }
             }
         }
+        // Return to Tune tab after Crop/Draw
+        selectTab(tuneTab);
     }
 
     private void loadImage() {
@@ -315,69 +330,6 @@ public class EditorActivity extends Activity {
             Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show();
             finish();
         }
-    }
-
-    private void addToolButton(int index, String name) {
-        TextView btn = new TextView(this);
-        btn.setText(name);
-        btn.setTextColor(Color.WHITE);
-        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        btn.setPadding(dp(12), dp(10), dp(12), dp(10));
-        btn.setGravity(Gravity.CENTER);
-        btn.setOnClickListener(v -> selectTool(index));
-        toolsContainer.addView(btn);
-    }
-
-    private void selectTool(int index) {
-        selectedTool = index;
-        currentToolLabel.setText(TOOL_NAMES[index]);
-        adjustmentSlider.setVisibility(View.VISIBLE);
-
-        float currentValue = getToolValue(index);
-        boolean isCentered = isCenteredTool(index);
-
-        if (isCentered) {
-            adjustmentSlider.setMax(200);
-            adjustmentSlider.setProgress((int) (currentValue + 100));
-        } else {
-            adjustmentSlider.setMax(100);
-            adjustmentSlider.setProgress((int) currentValue);
-        }
-
-        updateSliderValueText(currentValue, isCentered);
-
-        // Highlight selected tool (offset by 2 for Crop and Draw buttons at indices 0,1)
-        for (int i = 0; i < toolsContainer.getChildCount(); i++) {
-            TextView child = (TextView) toolsContainer.getChildAt(i);
-            if (i < 2) {
-                child.setTextColor(Color.WHITE);
-            } else {
-                child.setTextColor((i - 2) == index ? 0xFF4FC3F7 : Color.WHITE);
-            }
-        }
-    }
-
-    private void applySliderValue(int progress) {
-        boolean centered = isCenteredTool(selectedTool);
-        float value = centered ? (progress - 100) : progress;
-        setToolValue(selectedTool, value);
-        updateSliderValueText(value, centered);
-        renderer.requestRender();
-    }
-
-    private void updateSliderValueText(float value, boolean centered) {
-        int intVal = Math.round(value);
-        if (centered) {
-            sliderValueText.setText(intVal > 0 ? "+" + intVal : String.valueOf(intVal));
-        } else {
-            sliderValueText.setText(String.valueOf(intVal));
-        }
-    }
-
-    private boolean isCenteredTool(int index) {
-        // Exposure, Contrast, Saturation, Warmth, Highlights, Shadows are centered (-100 to 100)
-        // Sharpen, Fade, Grain, Vignette are 0 to 100
-        return index <= 5;
     }
 
     private float getToolValue(int index) {
