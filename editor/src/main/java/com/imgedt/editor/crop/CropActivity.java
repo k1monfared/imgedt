@@ -22,9 +22,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.imgedt.editor.R;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
-import java.io.InputStream;
+import com.imgedt.editor.ImageUtils;
+import com.imgedt.editor.R;
 
 /**
  * Activity for cropping and rotating images.
@@ -54,6 +57,10 @@ public class CropActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -189,6 +196,12 @@ public class CropActivity extends Activity {
 
         setContentView(root);
 
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(0, 0, 0, systemBars.bottom);
+            return insets;
+        });
+
         loadImage();
 
         // Initialize crop area after layout
@@ -206,14 +219,11 @@ public class CropActivity extends Activity {
         if (intent == null) return;
         Uri imageUri = intent.getParcelableExtra(EXTRA_IMAGE_URI);
         if (imageUri == null) return;
-        try {
-            InputStream is = getContentResolver().openInputStream(imageUri);
-            if (is != null) {
-                sourceBitmap = BitmapFactory.decodeStream(is);
-                is.close();
-                cropView.setBitmap(sourceBitmap);
-            }
-        } catch (Exception e) {
+
+        sourceBitmap = ImageUtils.decodeBitmapWithOrientation(getContentResolver(), imageUri);
+        if (sourceBitmap != null) {
+            cropView.setBitmap(sourceBitmap);
+        } else {
             Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show();
             finish();
         }

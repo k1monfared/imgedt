@@ -67,7 +67,7 @@ public class CropView extends View {
      */
     public void resetToFit(RectF cropRect) {
         if (state == null || cropRect == null) return;
-        state.reset(cropRect);
+        state.resetTransform(cropRect);
         invalidate();
     }
 
@@ -77,8 +77,17 @@ public class CropView extends View {
     public void rotate90(int degrees) {
         if (state == null || areaView == null) return;
         state.orientation = (state.orientation + degrees + 360) % 360;
-        RectF cropRect = areaView.getCropRect();
-        state.reset(cropRect);
+
+        // Swap crop rect dimensions to follow the rotation
+        RectF oldCrop = areaView.getCropRect();
+        float cx = oldCrop.centerX();
+        float cy = oldCrop.centerY();
+        float halfNewW = oldCrop.height() / 2;
+        float halfNewH = oldCrop.width() / 2;
+        RectF newCrop = new RectF(cx - halfNewW, cy - halfNewH, cx + halfNewW, cy + halfNewH);
+        areaView.setCropRect(newCrop);
+
+        state.resetTransform(newCrop);
         invalidate();
     }
 

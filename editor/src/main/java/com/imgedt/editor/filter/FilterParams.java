@@ -25,13 +25,13 @@ public class FilterParams {
     }
 
     public float getContrast() {
-        return (contrastValue / 100.0f) * 0.3f + 1.0f;
+        return (contrastValue / 100.0f) * 0.6f + 1.0f;
     }
 
     public float getSaturation() {
         float v = saturationValue / 100.0f;
         if (v > 0) {
-            return v * 1.05f + 1.0f;
+            return v * 1.50f + 1.0f;
         }
         return v + 1.0f;
     }
@@ -41,11 +41,11 @@ public class FilterParams {
     }
 
     public float getHighlights() {
-        return (highlightsValue * 0.75f + 100.0f) / 100.0f;
+        return (highlightsValue * 0.90f + 100.0f) / 100.0f;
     }
 
     public float getShadows() {
-        return (shadowsValue * 0.55f + 100.0f) / 100.0f;
+        return (shadowsValue * 0.75f + 100.0f) / 100.0f;
     }
 
     public float getVignette() {

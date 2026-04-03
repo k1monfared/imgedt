@@ -31,10 +31,15 @@ public class PaintView extends View {
     private Canvas paintCanvas;
     private Canvas canvasCanvas;
 
+    // Temp bitmap for compositing eraser preview in onDraw
+    private Bitmap displayBitmap;
+    private Canvas displayCanvas;
+
     private final Paint brushPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint displayPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Paint eraserMaskPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint clearPaint = new Paint();
+    private final Paint eraserDisplayPaint = new Paint();
 
     private int brushColor = Color.RED;
     private float brushSize = 20f;
@@ -45,6 +50,7 @@ public class PaintView extends View {
     private boolean isDrawing = false;
 
     private final List<Bitmap> undoStack = new ArrayList<>();
+    private final List<Bitmap> redoStack = new ArrayList<>();
     private static final int MAX_UNDO = 20;
 
     private Listener listener;
@@ -56,6 +62,7 @@ public class PaintView extends View {
         eraserMaskPaint.setStyle(Paint.Style.FILL);
         eraserMaskPaint.setColor(Color.WHITE);
         clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+        eraserDisplayPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
     }
 
     public void setListener(Listener listener) {
@@ -89,11 +96,28 @@ public class PaintView extends View {
         return !undoStack.isEmpty();
     }
 
+    public boolean canRedo() {
+        return !redoStack.isEmpty();
+    }
+
     public void undo() {
         if (undoStack.isEmpty()) return;
+        // Push current state to redo stack
+        redoStack.add(Bitmap.createBitmap(canvasBitmap));
         Bitmap prev = undoStack.remove(undoStack.size() - 1);
         canvasBitmap.recycle();
         canvasBitmap = prev;
+        canvasCanvas = new Canvas(canvasBitmap);
+        invalidate();
+    }
+
+    public void redo() {
+        if (redoStack.isEmpty()) return;
+        // Push current state to undo stack
+        undoStack.add(Bitmap.createBitmap(canvasBitmap));
+        Bitmap next = redoStack.remove(redoStack.size() - 1);
+        canvasBitmap.recycle();
+        canvasBitmap = next;
         canvasCanvas = new Canvas(canvasBitmap);
         invalidate();
     }
@@ -116,11 +140,31 @@ public class PaintView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (canvasBitmap != null) {
+        if (canvasBitmap == null) return;
+
+        if (isDrawing && isEraser && paintBitmap != null) {
+            // Show eraser effect live by compositing with DST_OUT into temp bitmap
+            ensureDisplayBitmap();
+            displayCanvas.drawColor(0, PorterDuff.Mode.CLEAR);
+            displayCanvas.drawBitmap(canvasBitmap, 0, 0, null);
+            displayCanvas.drawBitmap(paintBitmap, 0, 0, eraserDisplayPaint);
+            canvas.drawBitmap(displayBitmap, 0, 0, displayPaint);
+        } else {
             canvas.drawBitmap(canvasBitmap, 0, 0, displayPaint);
+            if (isDrawing && paintBitmap != null) {
+                canvas.drawBitmap(paintBitmap, 0, 0, displayPaint);
+            }
         }
-        if (isDrawing && paintBitmap != null) {
-            canvas.drawBitmap(paintBitmap, 0, 0, displayPaint);
+    }
+
+    private void ensureDisplayBitmap() {
+        if (displayBitmap == null
+                || displayBitmap.getWidth() != canvasBitmap.getWidth()
+                || displayBitmap.getHeight() != canvasBitmap.getHeight()) {
+            if (displayBitmap != null) displayBitmap.recycle();
+            displayBitmap = Bitmap.createBitmap(
+                    canvasBitmap.getWidth(), canvasBitmap.getHeight(), Bitmap.Config.ARGB_8888);
+            displayCanvas = new Canvas(displayBitmap);
         }
     }
 
@@ -170,7 +214,7 @@ public class PaintView extends View {
         float dy = y1 - y0;
         float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
-        float spacing = 0.15f;
+        float spacing = 0.05f;
         float step = Math.max(1.0f, spacing * brushSize);
         float steps = dist / step;
 
@@ -187,11 +231,11 @@ public class PaintView extends View {
         if (isEraser) {
             // Draw opaque white on the paint layer to build an erase mask.
             // commitStroke will use DST_OUT to subtract this mask from the canvas.
-            eraserMaskPaint.setAlpha((int) (brushAlpha * 40));
+            eraserMaskPaint.setAlpha((int) (brushAlpha * 80));
             canvas.drawCircle(x, y, radius, eraserMaskPaint);
         } else {
             brushPaint.setColor(brushColor);
-            brushPaint.setAlpha((int) (brushAlpha * 40)); // Low per-stamp alpha for smooth accumulation
+            brushPaint.setAlpha((int) (brushAlpha * 80));
             canvas.drawCircle(x, y, radius, brushPaint);
         }
     }
@@ -199,9 +243,7 @@ public class PaintView extends View {
     private void commitStroke() {
         if (isEraser) {
             // For eraser, apply paint layer to canvas
-            Paint commitPaint = new Paint();
-            commitPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
-            canvasCanvas.drawBitmap(paintBitmap, 0, 0, commitPaint);
+            canvasCanvas.drawBitmap(paintBitmap, 0, 0, eraserDisplayPaint);
         } else {
             // For brush, composite paint layer onto canvas
             canvasCanvas.drawBitmap(paintBitmap, 0, 0, displayPaint);
@@ -211,6 +253,10 @@ public class PaintView extends View {
     }
 
     private void saveUndoState() {
+        // New stroke invalidates redo history
+        for (Bitmap b : redoStack) b.recycle();
+        redoStack.clear();
+
         if (undoStack.size() >= MAX_UNDO) {
             Bitmap oldest = undoStack.remove(0);
             oldest.recycle();
@@ -221,7 +267,10 @@ public class PaintView extends View {
     public void recycle() {
         if (canvasBitmap != null) canvasBitmap.recycle();
         if (paintBitmap != null) paintBitmap.recycle();
+        if (displayBitmap != null) displayBitmap.recycle();
         for (Bitmap b : undoStack) b.recycle();
         undoStack.clear();
+        for (Bitmap b : redoStack) b.recycle();
+        redoStack.clear();
     }
 }

@@ -24,9 +24,12 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.imgedt.editor.R;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
-import java.io.InputStream;
+import com.imgedt.editor.ImageUtils;
+import com.imgedt.editor.R;
 
 /**
  * Activity for freehand drawing on top of an image.
@@ -47,6 +50,7 @@ public class PaintActivity extends Activity {
     private View selectedSwatch;
     private ImageView eraserBtn;
     private ImageView undoBtn;
+    private ImageView redoBtn;
 
     private static final int[] COLORS = {
             Color.RED, 0xFFFF9800, 0xFFFFEB3B, 0xFF4CAF50,
@@ -59,6 +63,10 @@ public class PaintActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -178,9 +186,28 @@ public class PaintActivity extends Activity {
         undoBtn.setPadding(dp(10), dp(10), dp(10), dp(10));
         undoBtn.setOnClickListener(v -> {
             paintView.undo();
-            updateUndoState();
+            updateUndoRedoState();
         });
         actionRow.addView(undoBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
+
+        addSpacer(actionRow);
+
+        // Redo icon button
+        redoBtn = new ImageView(this);
+        redoBtn.setScaleType(ImageView.ScaleType.CENTER);
+        redoBtn.setImageResource(R.drawable.ic_redo);
+        redoBtn.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        redoBtn.setAlpha(0.4f);
+        GradientDrawable redoBg = new GradientDrawable();
+        redoBg.setCornerRadius(dp(6));
+        redoBg.setColor(0x18FFFFFF);
+        redoBtn.setBackground(redoBg);
+        redoBtn.setPadding(dp(10), dp(10), dp(10), dp(10));
+        redoBtn.setOnClickListener(v -> {
+            paintView.redo();
+            updateUndoRedoState();
+        });
+        actionRow.addView(redoBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         addSpacer(actionRow);
 
@@ -191,10 +218,17 @@ public class PaintActivity extends Activity {
 
         bottomPanel.addView(actionRow);
 
-        // Update undo state after each stroke
-        paintView.setListener(this::updateUndoState);
+        // Update undo/redo state after each stroke
+        paintView.setListener(this::updateUndoRedoState);
 
         setContentView(root);
+
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(0, 0, 0, systemBars.bottom);
+            return insets;
+        });
+
         loadImage();
     }
 
@@ -260,25 +294,35 @@ public class PaintActivity extends Activity {
         swatch.setBackground(gd);
     }
 
-    private void updateUndoState() {
+    private void updateUndoRedoState() {
         if (undoBtn != null) {
             undoBtn.setAlpha(paintView.canUndo() ? 1.0f : 0.4f);
+        }
+        if (redoBtn != null) {
+            redoBtn.setAlpha(paintView.canRedo() ? 1.0f : 0.4f);
         }
     }
 
     private void loadImage() {
         Uri imageUri = getIntent().getParcelableExtra(EXTRA_IMAGE_URI);
         if (imageUri == null) { finish(); return; }
-        try {
-            InputStream is = getContentResolver().openInputStream(imageUri);
-            if (is != null) {
-                sourceBitmap = BitmapFactory.decodeStream(is);
-                is.close();
-                backgroundView.setImageBitmap(sourceBitmap);
-            }
-        } catch (Exception e) {
+
+        sourceBitmap = ImageUtils.decodeBitmapWithOrientation(getContentResolver(), imageUri);
+        if (sourceBitmap != null) {
+            backgroundView.setImageBitmap(sourceBitmap);
+        } else {
             Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show();
             finish();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (paintView != null && paintView.canUndo()) {
+            applyPaint();
+        } else {
+            setResult(RESULT_CANCELED);
+            super.onBackPressed();
         }
     }
 

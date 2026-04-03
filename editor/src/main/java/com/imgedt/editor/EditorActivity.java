@@ -24,12 +24,15 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import com.imgedt.editor.crop.CropActivity;
 import com.imgedt.editor.filter.FilterParams;
 import com.imgedt.editor.filter.FilterRenderer;
 import com.imgedt.editor.paint.PaintActivity;
 
-import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -68,7 +71,9 @@ public class EditorActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
 
         filterParams = new FilterParams();
 
@@ -104,6 +109,13 @@ public class EditorActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
 
         setContentView(root);
+
+        // Apply window insets so bottom panel is above the navigation bar
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(0, 0, 0, systemBars.bottom);
+            return insets;
+        });
 
         // Select Tune tab by default
         selectTab(tuneTab);
@@ -318,15 +330,8 @@ public class EditorActivity extends Activity {
         imageUri = intent.getParcelableExtra(EXTRA_IMAGE_URI);
         if (imageUri == null) return;
 
-        try {
-            InputStream is = getContentResolver().openInputStream(imageUri);
-            if (is != null) {
-                BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
-                sourceBitmap = BitmapFactory.decodeStream(is, null, opts);
-                is.close();
-            }
-        } catch (Exception e) {
+        sourceBitmap = ImageUtils.decodeBitmapWithOrientation(getContentResolver(), imageUri);
+        if (sourceBitmap == null) {
             Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show();
             finish();
         }

@@ -50,12 +50,25 @@ public class CropState {
         matrix.postRotate(angle, pivotX, pivotY);
     }
 
+    /**
+     * Full reset: zeros everything including orientation and mirror.
+     * Used by the Reset button.
+     */
     public void reset(RectF cropRect) {
+        orientation = 0;
+        mirrored = false;
+        resetTransform(cropRect);
+    }
+
+    /**
+     * Partial reset: resets position, free rotation, and scale,
+     * but preserves orientation and mirrored state.
+     * Used after rotate90() and aspect ratio changes.
+     */
+    public void resetTransform(RectF cropRect) {
         x = 0;
         y = 0;
         rotation = 0;
-        orientation = 0;
-        mirrored = false;
         matrix.reset();
 
         updateMinimumScale(cropRect);
