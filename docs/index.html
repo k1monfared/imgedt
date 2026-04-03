@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImgEdt - Open Source Photo Editor for Android</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+        }
+        a { color: #4FC3F7; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(13,17,23,0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid #21262d;
+            padding: 12px 0;
+        }
+        nav .container { display: flex; align-items: center; justify-content: space-between; }
+        nav .logo { color: #fff; font-weight: 700; font-size: 1.1rem; letter-spacing: 1px; }
+        nav .logo span { color: #4FC3F7; }
+        nav .links a { color: #8b949e; margin-left: 24px; font-size: 0.9rem; }
+        nav .links a:hover { color: #fff; text-decoration: none; }
+
+        /* Hero */
+        .hero { text-align: center; padding: 64px 0 32px; }
+        .hero .badge {
+            display: inline-block;
+            background: #1a1a2e; border: 1px solid #30363d;
+            border-radius: 20px; padding: 4px 16px;
+            font-size: 0.82rem; color: #8b949e; margin-bottom: 20px;
+        }
+        .hero h1 { font-size: 3.2rem; color: #fff; letter-spacing: 3px; margin-bottom: 8px; }
+        .hero h1 span { color: #4FC3F7; }
+        .hero p { font-size: 1.15rem; color: #8b949e; margin-bottom: 28px; max-width: 520px; margin-left: auto; margin-right: auto; }
+        .btn {
+            display: inline-block; padding: 13px 30px; border-radius: 8px;
+            font-size: 0.95rem; font-weight: 600; margin: 6px; transition: all 0.2s;
+        }
+        .btn:hover { text-decoration: none; transform: translateY(-1px); }
+        .btn-primary { background: #4FC3F7; color: #0d1117; }
+        .btn-primary:hover { background: #81D4FA; }
+        .btn-outline { background: transparent; color: #4FC3F7; border: 1px solid #4FC3F7; }
+        .btn-outline:hover { background: rgba(79,195,247,0.1); }
+
+        /* ===== PHONE CAROUSEL ===== */
+        .carousel-section { padding: 56px 0 40px; }
+        .carousel-section h2 { text-align: center; font-size: 1.6rem; color: #fff; margin-bottom: 8px; }
+        .carousel-section > p { text-align: center; color: #8b949e; margin-bottom: 36px; font-size: 0.95rem; }
+
+        .carousel-wrapper {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+            gap: 48px; min-height: 560px;
+        }
+        /* Phone frame */
+        .phone {
+            width: 280px; min-width: 280px;
+            height: 520px;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 28px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+            flex-shrink: 0;
+        }
+        .phone-notch {
+            width: 100px; height: 20px;
+            background: #0d1117; border-radius: 0 0 14px 14px;
+            margin: 0 auto;
+        }
+        .phone-screen {
+            position: absolute; top: 20px; left: 0; right: 0; bottom: 0;
+            display: none; flex-direction: column;
+        }
+        .phone-screen.active { display: flex; }
+
+        /* Shared phone screen elements */
+        .ps-header {
+            padding: 8px 12px; font-size: 0.7rem; color: #8b949e;
+            display: flex; justify-content: space-between;
+        }
+        .ps-preview {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+        .ps-preview-img {
+            width: 90%; height: 80%; border-radius: 4px;
+            background: linear-gradient(135deg, #2d5016 0%, #1a472a 30%, #0f3d3e 60%, #1b1b4b 100%);
+            position: relative;
+        }
+        /* Landscape placeholder within preview */
+        .ps-preview-img::after {
+            content: '';
+            position: absolute; bottom: 20%; left: 10%; right: 10%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        }
+        .ps-preview-img .sun {
+            position: absolute; top: 18%; right: 22%;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: radial-gradient(circle, #FFD54F 30%, #FF9800 100%);
+            box-shadow: 0 0 20px rgba(255,152,0,0.4);
+        }
+        .ps-preview-img .mountain {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(180deg, transparent 0%, #1a1a2e 100%);
+            clip-path: polygon(0% 100%, 15% 40%, 35% 70%, 55% 25%, 75% 55%, 100% 35%, 100% 100%);
+        }
+        .ps-bottom {
+            background: rgba(0,0,0,0.88);
+            padding: 8px;
+        }
+        .ps-tools {
+            display: flex; gap: 2px; padding: 4px 0; overflow: hidden;
+            justify-content: center;
+        }
+        .ps-tool {
+            font-size: 0.55rem; color: #8b949e; padding: 4px 6px;
+            white-space: nowrap; border-radius: 4px;
+        }
+        .ps-tool.active { color: #4FC3F7; }
+        .ps-tool.accent { color: #FF9800; }
+        .ps-slider {
+            height: 3px; background: #333; border-radius: 2px;
+            margin: 4px 12px; position: relative;
+        }
+        .ps-slider::after {
+            content: ''; position: absolute;
+            left: 50%; top: -3px; width: 9px; height: 9px;
+            background: #fff; border-radius: 50%; transform: translateX(-50%);
+        }
+        .ps-slider.offset-right::after { left: 68%; }
+        .ps-actions {
+            display: flex; justify-content: space-between;
+            padding: 6px 8px; font-size: 0.6rem;
+        }
+        .ps-actions span { color: #8b949e; }
+        .ps-actions span.blue { color: #4FC3F7; }
+
+        /* Crop-specific */
+        .crop-overlay {
+            position: absolute; top: 8%; left: 8%; right: 8%; bottom: 8%;
+            border: 2px solid rgba(255,255,255,0.85);
+        }
+        .crop-overlay::before, .crop-overlay::after {
+            content: ''; position: absolute;
+            background: rgba(255,255,255,0.2);
+        }
+        .crop-overlay::before { left: 33.3%; top: 0; bottom: 0; width: 1px; }
+        .crop-overlay::after { top: 33.3%; left: 0; right: 0; height: 1px; }
+        .crop-handle {
+            position: absolute; width: 14px; height: 14px;
+        }
+        .crop-handle::before, .crop-handle::after {
+            content: ''; position: absolute; background: #fff;
+        }
+        .crop-handle.tl { top: -2px; left: -2px; }
+        .crop-handle.tl::before { width: 14px; height: 3px; top: 0; left: 0; }
+        .crop-handle.tl::after { width: 3px; height: 14px; top: 0; left: 0; }
+        .crop-handle.tr { top: -2px; right: -2px; }
+        .crop-handle.tr::before { width: 14px; height: 3px; top: 0; right: 0; }
+        .crop-handle.tr::after { width: 3px; height: 14px; top: 0; right: 0; }
+        .crop-handle.bl { bottom: -2px; left: -2px; }
+        .crop-handle.bl::before { width: 14px; height: 3px; bottom: 0; left: 0; }
+        .crop-handle.bl::after { width: 3px; height: 14px; bottom: 0; left: 0; }
+        .crop-handle.br { bottom: -2px; right: -2px; }
+        .crop-handle.br::before { width: 14px; height: 3px; bottom: 0; right: 0; }
+        .crop-handle.br::after { width: 3px; height: 14px; bottom: 0; right: 0; }
+        /* Dim surround for crop */
+        .crop-dim-top, .crop-dim-bot, .crop-dim-left, .crop-dim-right {
+            position: absolute; background: rgba(0,0,0,0.55);
+        }
+        .crop-dim-top { top: 0; left: 0; right: 0; height: 8%; }
+        .crop-dim-bot { bottom: 0; left: 0; right: 0; height: 8%; }
+        .crop-dim-left { top: 8%; bottom: 8%; left: 0; width: 8%; }
+        .crop-dim-right { top: 8%; bottom: 8%; right: 0; width: 8%; }
+        /* Rotation ticks */
+        .rotation-bar {
+            height: 20px; display: flex; align-items: center;
+            justify-content: center; gap: 6px; padding: 0 20px;
+        }
+        .rotation-tick { width: 1px; height: 6px; background: #555; }
+        .rotation-tick.major { height: 10px; background: #888; }
+        .rotation-tick.center { height: 12px; background: #4FC3F7; width: 2px; }
+        .rotation-label { font-size: 0.45rem; color: #666; }
+        /* Aspect buttons */
+        .ps-aspects { display: flex; gap: 2px; justify-content: center; padding: 2px 0; }
+        .ps-aspect {
+            font-size: 0.5rem; color: #8b949e; padding: 3px 5px;
+            border-radius: 3px;
+        }
+        .ps-aspect.active { color: #4FC3F7; }
+        /* Icon buttons row */
+        .ps-icon-row {
+            display: flex; justify-content: space-around; align-items: center;
+            padding: 4px 8px;
+        }
+        .ps-icon-btn {
+            width: 28px; height: 28px; border-radius: 6px;
+            background: rgba(255,255,255,0.07);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; color: #ccc;
+        }
+
+        /* Paint-specific */
+        .paint-stroke {
+            position: absolute;
+            border: none;
+            pointer-events: none;
+        }
+        .stroke1 {
+            top: 25%; left: 15%; width: 60%; height: 40px;
+            border-top: 4px solid #F44336; border-radius: 50%;
+            transform: rotate(-8deg);
+        }
+        .stroke2 {
+            top: 45%; left: 20%; width: 50%; height: 30px;
+            border-top: 3px solid #2196F3; border-radius: 50%;
+            transform: rotate(5deg);
+        }
+        .stroke3 {
+            top: 60%; left: 25%; width: 40%; height: 25px;
+            border-top: 5px solid #FFEB3B; border-radius: 50%;
+            transform: rotate(-3deg);
+        }
+        /* Color dots */
+        .ps-colors { display: flex; gap: 4px; align-items: center; justify-content: center; padding: 4px 0; }
+        .ps-color-dot {
+            width: 16px; height: 16px; border-radius: 3px;
+        }
+        .ps-color-dot.selected { outline: 2px solid #fff; outline-offset: 1px; }
+
+        /* Save screen */
+        .save-check {
+            width: 56px; height: 56px; border-radius: 50%;
+            background: rgba(79,195,247,0.15);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto;
+        }
+        .save-check svg { width: 28px; height: 28px; }
+
+        /* Info panel next to phone */
+        .carousel-info {
+            flex: 1; min-width: 0;
+        }
+        .carousel-info h3 {
+            color: #4FC3F7; font-size: 1.3rem; margin-bottom: 12px;
+        }
+        .carousel-info p {
+            color: #8b949e; font-size: 0.95rem; margin-bottom: 16px;
+        }
+        .carousel-info ul {
+            list-style: none; padding: 0;
+        }
+        .carousel-info li {
+            color: #c9d1d9; font-size: 0.9rem;
+            padding: 5px 0 5px 20px; position: relative;
+        }
+        .carousel-info li::before {
+            content: ''; position: absolute; left: 0; top: 12px;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #4FC3F7;
+        }
+
+        /* Carousel dots */
+        .carousel-dots {
+            display: flex; justify-content: center; gap: 10px;
+            padding: 28px 0 0;
+        }
+        .carousel-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #30363d; cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+        }
+        .carousel-dot.active { background: #4FC3F7; transform: scale(1.2); }
+
+        /* Carousel arrows */
+        .carousel-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255,255,255,0.06); border: 1px solid #30363d;
+            color: #8b949e; font-size: 1.2rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; z-index: 10;
+        }
+        .carousel-arrow:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .carousel-arrow.prev { left: -20px; }
+        .carousel-arrow.next { right: -20px; }
+
+        @media (max-width: 720px) {
+            .carousel-wrapper { flex-direction: column; gap: 24px; min-height: auto; }
+            .carousel-arrow { display: none; }
+            .phone { width: 240px; min-width: 240px; height: 440px; }
+            .hero h1 { font-size: 2.2rem; }
+        }
+
+        /* Sections */
+        section { padding: 48px 0; border-top: 1px solid #21262d; }
+        section h2 { font-size: 1.5rem; color: #fff; margin-bottom: 20px; }
+
+        /* Feature grid */
+        .features { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .feature {
+            background: #161b22; border: 1px solid #21262d;
+            border-radius: 8px; padding: 20px;
+        }
+        .feature h3 { color: #4FC3F7; font-size: 1rem; margin-bottom: 8px; }
+        .feature p { font-size: 0.9rem; color: #8b949e; }
+        @media (max-width: 600px) { .features { grid-template-columns: 1fr; } }
+
+        /* Changelog */
+        .changelog-entry {
+            background: #161b22; border: 1px solid #21262d;
+            border-radius: 8px; padding: 20px; margin-bottom: 16px;
+        }
+        .changelog-entry h3 { color: #fff; font-size: 1.1rem; margin-bottom: 12px; }
+        .changelog-entry h3 span { color: #8b949e; font-weight: normal; font-size: 0.9rem; }
+        .changelog-entry h4 { color: #4FC3F7; font-size: 0.9rem; margin: 12px 0 6px; }
+        .changelog-entry ul { list-style: none; padding: 0; }
+        .changelog-entry li {
+            font-size: 0.9rem; color: #8b949e;
+            padding: 2px 0 2px 16px; position: relative;
+        }
+        .changelog-entry li::before { content: "\2022"; color: #4FC3F7; position: absolute; left: 0; }
+
+        /* Footer */
+        footer {
+            text-align: center; padding: 40px 0;
+            border-top: 1px solid #21262d;
+            color: #8b949e; font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="container">
+        <div class="logo">Img<span>Edt</span></div>
+        <div class="links">
+            <a href="#features">Features</a>
+            <a href="#changelog">Changelog</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/k1monfared/mobile_photo_editor">GitHub</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="hero">
+        <div class="badge">v0.1.0 &middot; GPL v2 &middot; Android 5.0+</div>
+        <h1>Img<span>Edt</span></h1>
+        <p>Open source photo editor for Android with real-time OpenGL filters, crop, and drawing tools</p>
+        <a href="https://github.com/k1monfared/mobile_photo_editor/releases/latest" class="btn btn-primary">Download APK</a>
+        <a href="https://github.com/k1monfared/mobile_photo_editor" class="btn btn-outline">Source Code</a>
+    </div>
+
+    <!-- ===== FEATURE CAROUSEL ===== -->
+    <div class="carousel-section" id="features">
+        <h2>See It in Action</h2>
+        <p>Swipe through the features below</p>
+
+        <div class="carousel-wrapper">
+            <button class="carousel-arrow prev" onclick="carouselNav(-1)" aria-label="Previous">&larr;</button>
+
+            <!-- Phone mockup -->
+            <div class="phone">
+                <div class="phone-notch"></div>
+
+                <!-- Screen 1: Adjustments -->
+                <div class="phone-screen active" data-slide="0">
+                    <div class="ps-header"><span>ImgEdt</span><span>Adjust</span></div>
+                    <div class="ps-preview">
+                        <div class="ps-preview-img" style="filter: saturate(1.4) contrast(1.1);">
+                            <div class="sun"></div>
+                            <div class="mountain"></div>
+                        </div>
+                    </div>
+                    <div class="ps-bottom">
+                        <div style="text-align:center;font-size:0.6rem;color:#4FC3F7;padding:2px 0;">Saturation <span style="color:#8b949e">+40</span></div>
+                        <div class="ps-slider offset-right"></div>
+                        <div class="ps-tools">
+                            <span class="ps-tool accent">Crop</span>
+                            <span class="ps-tool accent">Draw</span>
+                            <span class="ps-tool">Exposure</span>
+                            <span class="ps-tool">Contrast</span>
+                            <span class="ps-tool active">Saturation</span>
+                            <span class="ps-tool">Warmth</span>
+                        </div>
+                        <div class="ps-actions">
+                            <span>Cancel</span>
+                            <span>Reset</span>
+                            <span class="blue">Save</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen 2: Crop -->
+                <div class="phone-screen" data-slide="1">
+                    <div class="ps-header"><span>ImgEdt</span><span>Crop</span></div>
+                    <div class="ps-preview">
+                        <div class="ps-preview-img">
+                            <div class="sun"></div>
+                            <div class="mountain"></div>
+                            <div class="crop-dim-top"></div>
+                            <div class="crop-dim-bot"></div>
+                            <div class="crop-dim-left"></div>
+                            <div class="crop-dim-right"></div>
+                            <div class="crop-overlay">
+                                <div class="crop-handle tl"></div>
+                                <div class="crop-handle tr"></div>
+                                <div class="crop-handle bl"></div>
+                                <div class="crop-handle br"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ps-bottom">
+                        <div class="rotation-bar">
+                            <span class="rotation-label">-90</span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick major"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick center"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick major"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-tick"></span>
+                            <span class="rotation-label">90</span>
+                        </div>
+                        <div class="ps-aspects">
+                            <span class="ps-aspect active">Free</span>
+                            <span class="ps-aspect">1:1</span>
+                            <span class="ps-aspect">4:3</span>
+                            <span class="ps-aspect">3:4</span>
+                            <span class="ps-aspect">16:9</span>
+                            <span class="ps-aspect">9:16</span>
+                        </div>
+                        <div class="ps-icon-row">
+                            <span style="font-size:0.55rem;color:#8b949e;">Cancel</span>
+                            <div class="ps-icon-btn" title="Rotate 90">&#x21BB;</div>
+                            <div class="ps-icon-btn" title="Mirror">&#x21C4;</div>
+                            <div class="ps-icon-btn" title="Expand">&#x2922;</div>
+                            <div class="ps-icon-btn" title="Reset">&#x21BA;</div>
+                            <span style="font-size:0.55rem;color:#4FC3F7;">Done</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen 3: Draw -->
+                <div class="phone-screen" data-slide="2">
+                    <div class="ps-header"><span>ImgEdt</span><span>Draw</span></div>
+                    <div class="ps-preview">
+                        <div class="ps-preview-img">
+                            <div class="sun"></div>
+                            <div class="mountain"></div>
+                            <div class="paint-stroke stroke1"></div>
+                            <div class="paint-stroke stroke2"></div>
+                            <div class="paint-stroke stroke3"></div>
+                        </div>
+                    </div>
+                    <div class="ps-bottom">
+                        <div style="display:flex;align-items:center;padding:2px 10px;gap:6px;">
+                            <span style="font-size:0.5rem;color:#888;">Size</span>
+                            <div class="ps-slider" style="flex:1;margin:0;"></div>
+                        </div>
+                        <div style="display:flex;align-items:center;padding:2px 10px;gap:6px;">
+                            <span style="font-size:0.5rem;color:#888;">Opacity</span>
+                            <div class="ps-slider offset-right" style="flex:1;margin:0;"></div>
+                        </div>
+                        <div class="ps-colors">
+                            <div class="ps-icon-btn" style="width:20px;height:20px;font-size:0.5rem;" title="Eraser">&#x2327;</div>
+                            <div class="ps-color-dot selected" style="background:#F44336;"></div>
+                            <div class="ps-color-dot" style="background:#FF9800;"></div>
+                            <div class="ps-color-dot" style="background:#FFEB3B;"></div>
+                            <div class="ps-color-dot" style="background:#4CAF50;"></div>
+                            <div class="ps-color-dot" style="background:#2196F3;"></div>
+                            <div class="ps-color-dot" style="background:#9C27B0;"></div>
+                            <div class="ps-color-dot" style="background:#fff;"></div>
+                            <div class="ps-color-dot" style="background:#000;border:1px solid #333;"></div>
+                        </div>
+                        <div class="ps-actions">
+                            <span>Cancel</span>
+                            <div class="ps-icon-btn" style="width:22px;height:22px;font-size:0.55rem;opacity:0.4;" title="Undo">&#x21B6;</div>
+                            <span class="blue">Done</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen 4: Save -->
+                <div class="phone-screen" data-slide="3">
+                    <div class="ps-header"><span>ImgEdt</span><span></span></div>
+                    <div class="ps-preview" style="flex-direction:column;gap:16px;">
+                        <div class="save-check">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#4FC3F7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="color:#fff;font-size:0.85rem;font-weight:600;">Photo saved to gallery</div>
+                            <div style="color:#8b949e;font-size:0.65rem;margin-top:4px;">Pictures/PhotoEditor</div>
+                        </div>
+                        <div class="ps-preview-img" style="width:60%;height:50%;filter:saturate(1.3) contrast(1.1);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                            <div class="sun"></div>
+                            <div class="mountain"></div>
+                        </div>
+                    </div>
+                    <div class="ps-bottom" style="padding:12px;">
+                        <div style="text-align:center;font-size:0.6rem;color:#8b949e;">JPEG quality 95 &middot; Full resolution</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info panel -->
+            <div class="carousel-info">
+                <div data-info="0" class="info-panel active">
+                    <h3>Real-time Photo Adjustments</h3>
+                    <p>All adjustments are processed on the GPU using OpenGL ES 2.0 shaders ported from Telegram's photo editor. Changes appear instantly as you drag the slider.</p>
+                    <ul>
+                        <li>Exposure, Contrast, Saturation, Warmth</li>
+                        <li>Highlights, Shadows for tonal control</li>
+                        <li>Sharpen, Fade, Grain, Vignette for creative effects</li>
+                        <li>Each parameter has a centered or one-sided slider matching its natural range</li>
+                    </ul>
+                </div>
+                <div data-info="1" class="info-panel" style="display:none;">
+                    <h3>Crop and Rotate</h3>
+                    <p>Precise crop control with a Telegram-style overlay. Drag corners or edges to resize. Pinch to zoom, pan to reposition. The rotation wheel gives you fine control from -90 to +90 degrees.</p>
+                    <ul>
+                        <li>6 aspect ratio presets: Free, 1:1, 4:3, 3:4, 16:9, 9:16</li>
+                        <li>90-degree rotation with icon button (tap 4x to return to start)</li>
+                        <li>Horizontal mirror toggle</li>
+                        <li>Expand mode: allow black areas when rotating, or auto-zoom to fill</li>
+                        <li>Reset button restores all transforms to original</li>
+                    </ul>
+                </div>
+                <div data-info="2" class="info-panel" style="display:none;">
+                    <h3>Freehand Drawing</h3>
+                    <p>Draw directly on your photo with a stamp-based brush engine. Strokes accumulate smoothly with configurable opacity for a natural painting feel.</p>
+                    <ul>
+                        <li>8 colors with visible selection indicator (white border)</li>
+                        <li>Adjustable brush size (2px to 100px)</li>
+                        <li>Opacity slider for transparent brush strokes</li>
+                        <li>Eraser tool with icon button and toggle highlight</li>
+                        <li>Undo up to 20 strokes (button dims when stack is empty)</li>
+                    </ul>
+                </div>
+                <div data-info="3" class="info-panel" style="display:none;">
+                    <h3>Save to Gallery</h3>
+                    <p>Your edited photo is saved at full resolution to your device gallery. The filter pipeline renders the final image on the GPU at the original bitmap dimensions, then writes it as a high-quality JPEG.</p>
+                    <ul>
+                        <li>JPEG quality 95 for minimal compression artifacts</li>
+                        <li>Saved via Android MediaStore (visible in gallery apps)</li>
+                        <li>Full resolution output (no downscaling)</li>
+                        <li>All adjustments baked into the final image</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button class="carousel-arrow next" onclick="carouselNav(1)" aria-label="Next">&rarr;</button>
+        </div>
+
+        <div class="carousel-dots">
+            <button class="carousel-dot active" onclick="goToSlide(0)" aria-label="Adjustments"></button>
+            <button class="carousel-dot" onclick="goToSlide(1)" aria-label="Crop"></button>
+            <button class="carousel-dot" onclick="goToSlide(2)" aria-label="Draw"></button>
+            <button class="carousel-dot" onclick="goToSlide(3)" aria-label="Save"></button>
+        </div>
+    </div>
+
+    <!-- Quick features grid -->
+    <section>
+        <h2>Why ImgEdt?</h2>
+        <div class="features">
+            <div class="feature">
+                <h3>GPU-Powered</h3>
+                <p>All image processing happens on the GPU via OpenGL ES 2.0 GLSL shaders. Smooth 60fps preview even on mid-range devices.</p>
+            </div>
+            <div class="feature">
+                <h3>Open Source</h3>
+                <p>GPL v2 licensed. Full source code on GitHub. Algorithms ported from Telegram's battle-tested photo editor.</p>
+            </div>
+            <div class="feature">
+                <h3>Lightweight</h3>
+                <p>Under 7 MB APK. No ads, no tracking, no internet permissions required. Just a clean photo editing tool.</p>
+            </div>
+            <div class="feature">
+                <h3>Library-Ready</h3>
+                <p>Two-module architecture: the editor is a separate Android library (AAR) that can be embedded in other apps.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="changelog">
+        <h2>Changelog</h2>
+        <div class="changelog-entry">
+            <h3>v0.1.0 <span>2026-04-01</span></h3>
+            <h4>Added</h4>
+            <ul>
+                <li>OpenGL ES 2.0 filter pipeline with 10 real-time adjustments</li>
+                <li>GLSL shaders ported from Telegram's photo editor</li>
+                <li>Crop and rotate with 6 aspect ratio presets</li>
+                <li>Free rotation (-90 to +90 degrees) with rotation wheel</li>
+                <li>90-degree rotation, mirror, and expand mode toggle</li>
+                <li>Freehand drawing with 8 colors, brush size, and opacity</li>
+                <li>Eraser tool and undo support (20 steps)</li>
+                <li>Photo picker with Android 13+ permission handling</li>
+                <li>Save to gallery via MediaStore</li>
+            </ul>
+            <h4>Fixed</h4>
+            <ul>
+                <li>Saved photos were black (GL rendering ran on wrong thread)</li>
+                <li>Eraser had no visible effect</li>
+                <li>Tool highlight was offset by 2 positions</li>
+                <li>Crop reset did not restore orientation or mirror state</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="install">
+        <h2>Install</h2>
+        <p>Download the latest APK from <a href="https://github.com/k1monfared/mobile_photo_editor/releases/latest">GitHub Releases</a> and install it on your Android device (5.0+).</p>
+        <p style="margin-top: 12px;">For automatic updates, use <a href="https://github.com/ImranR98/Obtainium">Obtainium</a> and point it at this repository.</p>
+        <h3 style="color: #fff; margin-top: 24px; font-size: 1.1rem;">Build from Source</h3>
+        <pre style="background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 16px; margin-top: 8px; overflow-x: auto; font-size: 0.85rem; color: #c9d1d9;">git clone https://github.com/k1monfared/mobile_photo_editor.git
+cd mobile_photo_editor
+./gradlew assembleDebug
+# APK at app/build/outputs/apk/debug/app-debug.apk</pre>
+    </section>
+
+    <footer>
+        <p>ImgEdt is licensed under <a href="https://github.com/k1monfared/mobile_photo_editor/blob/master/LICENSE">GPL v2</a>. Filter algorithms derived from <a href="https://github.com/DrKLO/Telegram">Telegram</a>.</p>
+    </footer>
+</div>
+
+<script>
+    let currentSlide = 0;
+    const totalSlides = 4;
+
+    function goToSlide(n) {
+        currentSlide = n;
+        document.querySelectorAll('.phone-screen').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.info-panel').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.carousel-dot').forEach(d => d.classList.remove('active'));
+
+        document.querySelector(`.phone-screen[data-slide="${n}"]`).classList.add('active');
+        document.querySelector(`.info-panel[data-info="${n}"]`).style.display = 'block';
+        document.querySelectorAll('.carousel-dot')[n].classList.add('active');
+    }
+
+    function carouselNav(dir) {
+        goToSlide((currentSlide + dir + totalSlides) % totalSlides);
+    }
+
+    // Touch swipe support
+    let touchStartX = 0;
+    document.querySelector('.phone').addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+    document.querySelector('.phone').addEventListener('touchend', e => {
+        const diff = touchStartX - e.changedTouches[0].screenX;
+        if (Math.abs(diff) > 50) carouselNav(diff > 0 ? 1 : -1);
+    }, {passive: true});
+
+    // Keyboard nav
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft') carouselNav(-1);
+        if (e.key === 'ArrowRight') carouselNav(1);
+    });
+
+    // Auto-rotate every 6 seconds
+    let autoTimer = setInterval(() => carouselNav(1), 6000);
+    document.querySelector('.carousel-wrapper').addEventListener('mouseenter', () => clearInterval(autoTimer));
+    document.querySelector('.carousel-wrapper').addEventListener('mouseleave', () => {
+        autoTimer = setInterval(() => carouselNav(1), 6000);
+    });
+</script>
+
+</body>
+</html>

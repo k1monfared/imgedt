@@ -1,4 +1,4 @@
-package com.photoeditor.editor.crop;
+package com.imgedt.editor.crop;
 
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -54,6 +54,7 @@ public class CropState {
         x = 0;
         y = 0;
         rotation = 0;
+        orientation = 0;
         mirrored = false;
         matrix.reset();
 

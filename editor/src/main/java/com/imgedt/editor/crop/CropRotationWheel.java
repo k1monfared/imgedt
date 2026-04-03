@@ -1,4 +1,4 @@
-package com.photoeditor.editor.crop;
+package com.imgedt.editor.crop;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -18,7 +18,7 @@ public class CropRotationWheel extends View {
         void onRotationEnded(float angle);
     }
 
-    private static final float MAX_ANGLE = 45f;
+    private static final float MAX_ANGLE = 90f;
     private static final float TICK_SPACING = 5f;
     private static final float SNAP_THRESHOLD = 0.5f;
 

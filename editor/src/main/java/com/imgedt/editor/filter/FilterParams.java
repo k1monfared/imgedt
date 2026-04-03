@@ -1,4 +1,4 @@
-package com.photoeditor.editor.filter;
+package com.imgedt.editor.filter;
 
 /**
  * Holds all adjustment parameter values and converts them to shader uniform values.

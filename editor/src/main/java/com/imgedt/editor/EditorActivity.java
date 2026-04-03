@@ -1,4 +1,4 @@
-package com.photoeditor.editor;
+package com.imgedt.editor;
 
 import android.app.Activity;
 import android.content.ContentValues;
@@ -23,10 +23,10 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.photoeditor.editor.crop.CropActivity;
-import com.photoeditor.editor.filter.FilterParams;
-import com.photoeditor.editor.filter.FilterRenderer;
-import com.photoeditor.editor.paint.PaintActivity;
+import com.imgedt.editor.crop.CropActivity;
+import com.imgedt.editor.filter.FilterParams;
+import com.imgedt.editor.filter.FilterRenderer;
+import com.imgedt.editor.paint.PaintActivity;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -206,6 +206,33 @@ public class EditorActivity extends Activity {
         // Load the image
         loadImage();
 
+        // Fit TextureView to bitmap aspect ratio after layout
+        root.post(() -> {
+            if (sourceBitmap == null) return;
+            float bitmapAspect = (float) sourceBitmap.getWidth() / sourceBitmap.getHeight();
+            int availW = root.getWidth();
+            int availH = root.getHeight() - dp(200); // minus bottom panel
+            if (availW <= 0 || availH <= 0) return;
+            float areaAspect = (float) availW / availH;
+
+            int newW, newH;
+            if (bitmapAspect > areaAspect) {
+                newW = availW;
+                newH = (int) (availW / bitmapAspect);
+            } else {
+                newH = availH;
+                newW = (int) (availH * bitmapAspect);
+            }
+
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) previewView.getLayoutParams();
+            lp.width = newW;
+            lp.height = newH;
+            lp.gravity = Gravity.CENTER_HORIZONTAL;
+            lp.topMargin = (availH - newH) / 2;
+            lp.bottomMargin = 0;
+            previewView.setLayoutParams(lp);
+        });
+
         // Set up GL renderer when TextureView is ready
         previewView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
@@ -319,10 +346,14 @@ public class EditorActivity extends Activity {
 
         updateSliderValueText(currentValue, isCentered);
 
-        // Highlight selected tool
+        // Highlight selected tool (offset by 2 for Crop and Draw buttons at indices 0,1)
         for (int i = 0; i < toolsContainer.getChildCount(); i++) {
             TextView child = (TextView) toolsContainer.getChildAt(i);
-            child.setTextColor(i == index ? 0xFF4FC3F7 : Color.WHITE);
+            if (i < 2) {
+                child.setTextColor(Color.WHITE);
+            } else {
+                child.setTextColor((i - 2) == index ? 0xFF4FC3F7 : Color.WHITE);
+            }
         }
     }
 

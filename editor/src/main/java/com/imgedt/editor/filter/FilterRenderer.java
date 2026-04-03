@@ -1,4 +1,4 @@
-package com.photoeditor.editor.filter;
+package com.imgedt.editor.filter;
 
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
@@ -12,6 +12,8 @@ import android.view.TextureView;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -126,10 +128,32 @@ public class FilterRenderer {
 
     /**
      * Render the current state to a Bitmap for saving.
+     * Posts GL work to the GL thread and blocks until complete.
      */
     public Bitmap renderToBitmap() {
-        if (!initialized || sourceBitmap == null) return null;
+        if (!initialized || sourceBitmap == null || glHandler == null) return null;
 
+        final CountDownLatch latch = new CountDownLatch(1);
+        final Bitmap[] result = new Bitmap[1];
+
+        glHandler.post(() -> {
+            result[0] = renderToBitmapInternal();
+            latch.countDown();
+        });
+
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                Log.e(TAG, "renderToBitmap timed out");
+                return null;
+            }
+        } catch (InterruptedException e) {
+            Log.e(TAG, "renderToBitmap interrupted", e);
+            return null;
+        }
+        return result[0];
+    }
+
+    private Bitmap renderToBitmapInternal() {
         int w = sourceBitmap.getWidth();
         int h = sourceBitmap.getHeight();
 
@@ -168,8 +192,16 @@ public class FilterRenderer {
         GLES20.glReadPixels(0, 0, w, h, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buffer);
         buffer.rewind();
 
-        Bitmap result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        result.copyPixelsFromBuffer(buffer);
+        Bitmap glBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        glBitmap.copyPixelsFromBuffer(buffer);
+
+        // Flip vertically (GL origin is bottom-left, Android is top-left)
+        android.graphics.Matrix flipMatrix = new android.graphics.Matrix();
+        flipMatrix.postScale(1, -1, w / 2f, h / 2f);
+        Bitmap result = Bitmap.createBitmap(glBitmap, 0, 0, w, h, flipMatrix, false);
+        if (result != glBitmap) {
+            glBitmap.recycle();
+        }
 
         // Cleanup
         GLES20.glDeleteTextures(1, new int[]{fullSourceTex}, 0);

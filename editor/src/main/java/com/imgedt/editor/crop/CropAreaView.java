@@ -1,4 +1,4 @@
-package com.photoeditor.editor.crop;
+package com.imgedt.editor.crop;
 
 import android.content.Context;
 import android.graphics.Canvas;

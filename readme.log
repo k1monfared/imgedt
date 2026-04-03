@@ -1,7 +1,8 @@
-- Mobile Photo Editor
-    - status: POC | mode: Claude Code | updated: 2026-04-01
-    - A standalone Android photo editor with Telegram-style editing capabilities
+- ImgEdt
+    - status: POC | mode: Claude Code | updated: 2026-04-01 | version: 0.1.0
+    - An open source Android photo editor with real-time OpenGL filters
     - License: GPL v2 (algorithms derived from Telegram)
+    - Website: https://k1monfared.github.io/mobile_photo_editor/
 
 - Features
     - Photo adjustments (OpenGL ES 2.0):
@@ -10,19 +11,19 @@
         - Grain, Vignette
     - Crop and rotate:
         - Freeform, 1:1, 4:3, 3:4, 16:9, 9:16 aspect ratios
-        - Free rotation (-45 to +45 degrees) with rotation wheel
+        - Free rotation (-90 to +90 degrees) with rotation wheel
         - 90-degree rotation and mirror
-        - Pan and pinch-to-zoom
+        - Expand mode toggle (allow black areas during rotation)
     - Drawing:
         - Freehand brush with 8 color options
-        - Adjustable brush size
-        - Eraser tool
-        - Undo support (up to 20 steps)
+        - Adjustable brush size and opacity
+        - Eraser tool with icon
+        - Undo support (up to 20 steps) with visual state
 
 - Architecture
     - Two modules:
         - app/: Thin shell with photo picker and permissions
-        - editor/: Photo editor library module
+        - editor/: Photo editor library module (com.imgedt.editor)
     - Filter pipeline:
         - OpenGL ES 2.0 with GLSL shaders ported from Telegram
         - Multi-pass rendering: sharpen, tools (all adjustments), display
@@ -38,11 +39,17 @@
 - Building
     - Requirements:
         - Android SDK (platform 35, build tools 36.1.0)
-        - JDK 8+
+        - JDK 17+
     - Build:
         - ./gradlew assembleDebug
     - Output:
         - app/build/outputs/apk/debug/app-debug.apk
+
+- Releases
+    - APKs available at GitHub Releases
+    - CI/CD: GitHub Actions builds APK on tag push (v*)
+    - Versioning: Semantic versioning (versionName), monotonic versionCode
+    - Changelog: CHANGELOG.md in Keep a Changelog format
 
 - Roadmap
     - [] Test on physical Android device
@@ -51,3 +58,4 @@
     - [] Text overlays with multiple fonts
     - [] Neon brush effect
     - [] Package as AAR library for embedding in other apps
+    - [] F-Droid submission

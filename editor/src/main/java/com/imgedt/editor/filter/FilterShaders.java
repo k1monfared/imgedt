@@ -1,4 +1,4 @@
-package com.photoeditor.editor.filter;
+package com.imgedt.editor.filter;
 
 /**
  * GLSL shader source code for the photo editor filter pipeline.

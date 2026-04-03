@@ -1,4 +1,4 @@
-package com.photoeditor.editor.paint;
+package com.imgedt.editor.paint;
 
 /**
  * GLSL shader source code for the brush rendering pipeline.

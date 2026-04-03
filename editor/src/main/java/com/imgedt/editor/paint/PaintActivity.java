@@ -1,4 +1,4 @@
-package com.photoeditor.editor.paint;
+package com.imgedt.editor.paint;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -7,6 +7,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -22,11 +24,13 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.imgedt.editor.R;
+
 import java.io.InputStream;
 
 /**
  * Activity for freehand drawing on top of an image.
- * Provides brush color selection, size adjustment, eraser, and undo.
+ * Provides brush color/opacity selection, size adjustment, eraser, and undo.
  */
 public class PaintActivity extends Activity {
 
@@ -40,6 +44,9 @@ public class PaintActivity extends Activity {
     private int currentColor = Color.RED;
     private float currentSize = 20f;
     private boolean isEraser = false;
+    private View selectedSwatch;
+    private ImageView eraserBtn;
+    private ImageView undoBtn;
 
     private static final int[] COLORS = {
             Color.RED, 0xFFFF9800, 0xFFFFEB3B, 0xFF4CAF50,
@@ -66,7 +73,7 @@ public class PaintActivity extends Activity {
         paintView = new PaintView(this);
         FrameLayout.LayoutParams paintLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        paintLp.bottomMargin = dp(140);
+        paintLp.bottomMargin = dp(172);
         root.addView(paintView, paintLp);
 
         // Bottom panel
@@ -74,73 +81,72 @@ public class PaintActivity extends Activity {
         bottomPanel.setOrientation(LinearLayout.VERTICAL);
         bottomPanel.setBackgroundColor(0xE0000000);
         FrameLayout.LayoutParams bottomLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(140));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(172));
         bottomLp.gravity = Gravity.BOTTOM;
         root.addView(bottomPanel, bottomLp);
 
         // Brush size slider
-        LinearLayout sizeRow = new LinearLayout(this);
-        sizeRow.setOrientation(LinearLayout.HORIZONTAL);
-        sizeRow.setGravity(Gravity.CENTER_VERTICAL);
-        sizeRow.setPadding(dp(16), dp(4), dp(16), dp(4));
+        bottomPanel.addView(createSliderRow("Size", 100, 20, (progress) -> {
+            currentSize = Math.max(2, progress);
+            paintView.setBrushSize(currentSize);
+        }));
 
-        TextView sizeLabel = new TextView(this);
-        sizeLabel.setText("Size");
-        sizeLabel.setTextColor(Color.WHITE);
-        sizeLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        sizeRow.addView(sizeLabel);
+        // Brush opacity slider
+        bottomPanel.addView(createSliderRow("Opacity", 100, 85, (progress) -> {
+            float alpha = Math.max(0.05f, progress / 100f);
+            paintView.setBrushAlpha(alpha);
+        }));
 
-        SeekBar sizeSlider = new SeekBar(this);
-        sizeSlider.setMax(100);
-        sizeSlider.setProgress(20);
-        sizeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                currentSize = Math.max(2, progress);
-                paintView.setBrushSize(currentSize);
-            }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        LinearLayout.LayoutParams sliderLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        sliderLp.leftMargin = dp(8);
-        sizeRow.addView(sizeSlider, sliderLp);
-        bottomPanel.addView(sizeRow);
-
-        // Color row
+        // Color row with eraser
         LinearLayout colorRow = new LinearLayout(this);
         colorRow.setOrientation(LinearLayout.HORIZONTAL);
         colorRow.setGravity(Gravity.CENTER);
         colorRow.setPadding(dp(8), dp(4), dp(8), dp(4));
 
-        // Eraser button
-        TextView eraserBtn = new TextView(this);
-        eraserBtn.setText("Eraser");
-        eraserBtn.setTextColor(Color.WHITE);
-        eraserBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        eraserBtn.setPadding(dp(8), dp(6), dp(8), dp(6));
+        // Eraser icon button
+        eraserBtn = new ImageView(this);
+        eraserBtn.setScaleType(ImageView.ScaleType.CENTER);
+        eraserBtn.setImageResource(R.drawable.ic_paint_eraser);
+        eraserBtn.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        GradientDrawable eraserBg = new GradientDrawable();
+        eraserBg.setCornerRadius(dp(6));
+        eraserBg.setColor(0x18FFFFFF);
+        eraserBtn.setBackground(eraserBg);
+        eraserBtn.setPadding(dp(6), dp(6), dp(6), dp(6));
         eraserBtn.setOnClickListener(v -> {
             isEraser = !isEraser;
             paintView.setEraser(isEraser);
-            eraserBtn.setTextColor(isEraser ? 0xFF4FC3F7 : Color.WHITE);
+            eraserBtn.setColorFilter(isEraser ? 0xFF4FC3F7 : Color.WHITE, PorterDuff.Mode.SRC_IN);
+            if (isEraser) {
+                clearSwatchSelection();
+            }
         });
-        colorRow.addView(eraserBtn);
+        LinearLayout.LayoutParams eraserLp = new LinearLayout.LayoutParams(dp(36), dp(36));
+        eraserLp.setMargins(dp(4), 0, dp(8), 0);
+        colorRow.addView(eraserBtn, eraserLp);
 
-        for (int color : COLORS) {
+        // Color swatches
+        for (int i = 0; i < COLORS.length; i++) {
+            final int color = COLORS[i];
             View swatch = new View(this);
-            swatch.setBackgroundColor(color);
+            swatch.setTag(color);
             LinearLayout.LayoutParams swatchLp = new LinearLayout.LayoutParams(dp(28), dp(28));
-            swatchLp.setMargins(dp(4), 0, dp(4), 0);
+            swatchLp.setMargins(dp(3), 0, dp(3), 0);
+            updateSwatchDrawable(swatch, color, false);
             swatch.setOnClickListener(v -> {
                 currentColor = color;
                 paintView.setBrushColor(color);
                 isEraser = false;
                 paintView.setEraser(false);
-                eraserBtn.setTextColor(Color.WHITE);
+                eraserBtn.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+                setSelectedSwatch(v, color);
             });
             colorRow.addView(swatch, swatchLp);
+
+            // Select RED by default
+            if (i == 0) {
+                setSelectedSwatch(swatch, color);
+            }
         }
         bottomPanel.addView(colorRow);
 
@@ -159,9 +165,22 @@ public class PaintActivity extends Activity {
 
         addSpacer(actionRow);
 
-        TextView undoBtn = createButton("Undo");
-        undoBtn.setOnClickListener(v -> paintView.undo());
-        actionRow.addView(undoBtn);
+        // Undo icon button
+        undoBtn = new ImageView(this);
+        undoBtn.setScaleType(ImageView.ScaleType.CENTER);
+        undoBtn.setImageResource(R.drawable.ic_undo);
+        undoBtn.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        undoBtn.setAlpha(0.4f);
+        GradientDrawable undoBg = new GradientDrawable();
+        undoBg.setCornerRadius(dp(6));
+        undoBg.setColor(0x18FFFFFF);
+        undoBtn.setBackground(undoBg);
+        undoBtn.setPadding(dp(10), dp(10), dp(10), dp(10));
+        undoBtn.setOnClickListener(v -> {
+            paintView.undo();
+            updateUndoState();
+        });
+        actionRow.addView(undoBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         addSpacer(actionRow);
 
@@ -172,8 +191,79 @@ public class PaintActivity extends Activity {
 
         bottomPanel.addView(actionRow);
 
+        // Update undo state after each stroke
+        paintView.setListener(this::updateUndoState);
+
         setContentView(root);
         loadImage();
+    }
+
+    private interface SliderCallback {
+        void onChanged(int progress);
+    }
+
+    private LinearLayout createSliderRow(String label, int max, int initial, SliderCallback callback) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(16), dp(2), dp(16), dp(2));
+
+        TextView tv = new TextView(this);
+        tv.setText(label);
+        tv.setTextColor(0xAAFFFFFF);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        tv.setWidth(dp(48));
+        row.addView(tv);
+
+        SeekBar slider = new SeekBar(this);
+        slider.setMax(max);
+        slider.setProgress(initial);
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser) callback.onChanged(progress);
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        LinearLayout.LayoutParams sliderLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        row.addView(slider, sliderLp);
+        return row;
+    }
+
+    private void setSelectedSwatch(View swatch, int color) {
+        if (selectedSwatch != null) {
+            int prevColor = (int) selectedSwatch.getTag();
+            updateSwatchDrawable(selectedSwatch, prevColor, false);
+        }
+        updateSwatchDrawable(swatch, color, true);
+        selectedSwatch = swatch;
+    }
+
+    private void clearSwatchSelection() {
+        if (selectedSwatch != null) {
+            int prevColor = (int) selectedSwatch.getTag();
+            updateSwatchDrawable(selectedSwatch, prevColor, false);
+            selectedSwatch = null;
+        }
+    }
+
+    private void updateSwatchDrawable(View swatch, int color, boolean selected) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(color);
+        gd.setCornerRadius(dp(4));
+        if (selected) {
+            gd.setStroke(dp(2), Color.WHITE);
+        }
+        swatch.setBackground(gd);
+    }
+
+    private void updateUndoState() {
+        if (undoBtn != null) {
+            undoBtn.setAlpha(paintView.canUndo() ? 1.0f : 0.4f);
+        }
     }
 
     private void loadImage() {
@@ -200,7 +290,6 @@ public class PaintActivity extends Activity {
         Canvas canvas = new Canvas(result);
         canvas.drawBitmap(sourceBitmap, 0, 0, null);
 
-        // Scale paint layer to match source bitmap
         Paint p = new Paint(Paint.FILTER_BITMAP_FLAG);
         float scaleX = (float) sourceBitmap.getWidth() / paintLayer.getWidth();
         float scaleY = (float) sourceBitmap.getHeight() / paintLayer.getHeight();

@@ -1,4 +1,4 @@
-package com.photoeditor.editor.crop;
+package com.imgedt.editor.crop;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -28,6 +28,7 @@ public class CropView extends View {
     private float lastTouchX, lastTouchY;
     private boolean isDragging;
     private int activePointerId = -1;
+    private boolean allowBlackAreas = false;
 
     public CropView(Context context) {
         super(context);
@@ -90,6 +91,14 @@ public class CropView extends View {
         state.rotate(delta, 0, 0);
         fitContentInBounds();
         invalidate();
+    }
+
+    public void setAllowBlackAreas(boolean allow) {
+        this.allowBlackAreas = allow;
+    }
+
+    public boolean getAllowBlackAreas() {
+        return allowBlackAreas;
     }
 
     /**
@@ -237,30 +246,32 @@ public class CropView extends View {
         float cy = cropRect.centerY();
         contentRect.offset(cx, cy);
 
-        // Check scale
-        float minScale = Math.max(
-                cropRect.width() / contentRect.width() * state.scale,
-                cropRect.height() / contentRect.height() * state.scale
-        );
-        if (state.scale < minScale) {
-            float sf = minScale / state.scale;
-            state.scale(sf, 0, 0);
-            // Recompute content rect
-            contentRect.set(-ow / 2, -oh / 2, ow / 2, oh / 2);
-            m = new Matrix(state.matrix);
-            m.mapRect(contentRect);
-            contentRect.offset(cx, cy);
-        }
+        if (!allowBlackAreas) {
+            // Check scale: ensure image covers the crop rect
+            float minScale = Math.max(
+                    cropRect.width() / contentRect.width() * state.scale,
+                    cropRect.height() / contentRect.height() * state.scale
+            );
+            if (state.scale < minScale) {
+                float sf = minScale / state.scale;
+                state.scale(sf, 0, 0);
+                // Recompute content rect
+                contentRect.set(-ow / 2, -oh / 2, ow / 2, oh / 2);
+                m = new Matrix(state.matrix);
+                m.mapRect(contentRect);
+                contentRect.offset(cx, cy);
+            }
 
-        // Check translation
-        float dx = 0, dy = 0;
-        if (contentRect.left > cropRect.left) dx = cropRect.left - contentRect.left;
-        else if (contentRect.right < cropRect.right) dx = cropRect.right - contentRect.right;
-        if (contentRect.top > cropRect.top) dy = cropRect.top - contentRect.top;
-        else if (contentRect.bottom < cropRect.bottom) dy = cropRect.bottom - contentRect.bottom;
+            // Check translation: push content back to cover crop rect
+            float dx = 0, dy = 0;
+            if (contentRect.left > cropRect.left) dx = cropRect.left - contentRect.left;
+            else if (contentRect.right < cropRect.right) dx = cropRect.right - contentRect.right;
+            if (contentRect.top > cropRect.top) dy = cropRect.top - contentRect.top;
+            else if (contentRect.bottom < cropRect.bottom) dy = cropRect.bottom - contentRect.bottom;
 
-        if (dx != 0 || dy != 0) {
-            state.translate(dx, dy);
+            if (dx != 0 || dy != 0) {
+                state.translate(dx, dy);
+            }
         }
 
         invalidate();

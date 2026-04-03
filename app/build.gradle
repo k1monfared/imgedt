@@ -12,11 +12,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.photoeditor.app"
+        applicationId "com.imgedt.app"
         minSdkVersion 21
         targetSdkVersion 35
         versionCode 1
-        versionName "1.0"
+        versionName "0.1.0"
 
         multiDexEnabled true
     }
@@ -28,7 +28,7 @@ android {
         }
     }
 
-    namespace 'com.photoeditor.app'
+    namespace 'com.imgedt.app'
 }
 
 dependencies {

@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background circle -->
     <path
-        android:fillColor="#1976D2"
-        android:pathData="M24,4C12.95,4 4,12.95 4,24s8.95,20 20,20s20,-8.95 20,-20S35.05,4 24,4z" />
+        android:fillColor="#1A1A2E"
+        android:pathData="M54,54m-48,0a48,48 0,1 1,96 0a48,48 0,1 1,-96 0" />
+    <!-- Stylized "I" shape representing image editing -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M16,16h16v16H16z" />
+        android:fillColor="#4FC3F7"
+        android:pathData="M36,30 L72,30 L72,38 L58,38 L58,70 L72,70 L72,78 L36,78 L36,70 L50,70 L50,38 L36,38 Z" />
+    <!-- Small edit pencil accent -->
     <path
-        android:fillColor="#1976D2"
-        android:pathData="M20,28l4,-5l3,4l2,-2.5l3,3.5H20z" />
+        android:fillColor="#FF9800"
+        android:pathData="M68,22 L76,30 L72,34 L64,26 Z" />
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M62,24 L64,26 L60,30 L58,28 Z" />
 </vector>

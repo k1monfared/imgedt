@@ -1,4 +1,4 @@
-package com.photoeditor.editor.crop;
+package com.imgedt.editor.crop;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -14,10 +14,15 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.GradientDrawable;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.imgedt.editor.R;
 
 import java.io.InputStream;
 
@@ -119,7 +124,7 @@ public class CropActivity extends Activity {
         bottomPanel.addView(aspectRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // Action buttons (rotate, mirror, cancel, done)
+        // Action buttons (icon buttons)
         LinearLayout actionRow = new LinearLayout(this);
         actionRow.setOrientation(LinearLayout.HORIZONTAL);
         actionRow.setGravity(Gravity.CENTER);
@@ -134,29 +139,43 @@ public class CropActivity extends Activity {
 
         addSpacer(actionRow);
 
-        TextView rotate90Btn = createActionButton("Rotate");
+        ImageView rotate90Btn = createIconButton(R.drawable.ic_crop_rotate);
         rotate90Btn.setOnClickListener(v -> {
             cropView.rotate90(90);
             rotationWheel.setRotation(0);
         });
-        actionRow.addView(rotate90Btn);
+        actionRow.addView(rotate90Btn, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         addSpacer(actionRow);
 
-        TextView mirrorBtn = createActionButton("Mirror");
+        ImageView mirrorBtn = createIconButton(R.drawable.ic_crop_mirror);
         mirrorBtn.setOnClickListener(v -> cropView.mirror());
-        actionRow.addView(mirrorBtn);
+        actionRow.addView(mirrorBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         addSpacer(actionRow);
 
-        TextView resetBtn = createActionButton("Reset");
+        ImageView expandBtn = createIconButton(R.drawable.ic_expand);
+        expandBtn.setOnClickListener(v -> {
+            boolean allow = !cropView.getAllowBlackAreas();
+            cropView.setAllowBlackAreas(allow);
+            expandBtn.setColorFilter(allow ? 0xFF4FC3F7 : Color.WHITE, PorterDuff.Mode.SRC_IN);
+        });
+        actionRow.addView(expandBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
+
+        addSpacer(actionRow);
+
+        ImageView resetBtn = createIconButton(R.drawable.ic_crop_reset);
         resetBtn.setOnClickListener(v -> {
             rotationWheel.setRotation(0);
+            cropView.setAllowBlackAreas(false);
+            expandBtn.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+            if (cropView.getState() != null) {
+                cropView.getState().orientation = 0;
+                cropView.getState().mirrored = false;
+            }
             selectAspect(0, aspectRow);
-            RectF rect = areaView.getCropRect();
-            cropView.resetToFit(rect);
         });
-        actionRow.addView(resetBtn);
+        actionRow.addView(resetBtn, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         addSpacer(actionRow);
 
@@ -237,6 +256,19 @@ public class CropActivity extends Activity {
         } catch (Exception e) {
             Toast.makeText(this, "Failed to save crop: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private ImageView createIconButton(int drawableRes) {
+        ImageView iv = new ImageView(this);
+        iv.setScaleType(ImageView.ScaleType.CENTER);
+        iv.setImageResource(drawableRes);
+        iv.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(6));
+        bg.setColor(0x18FFFFFF);
+        iv.setBackground(bg);
+        iv.setPadding(dp(10), dp(10), dp(10), dp(10));
+        return iv;
     }
 
     private TextView createActionButton(String text) {

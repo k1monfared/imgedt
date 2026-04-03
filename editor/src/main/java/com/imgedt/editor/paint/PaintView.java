@@ -1,4 +1,4 @@
-package com.photoeditor.editor.paint;
+package com.imgedt.editor.paint;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -33,7 +33,7 @@ public class PaintView extends View {
 
     private final Paint brushPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint displayPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-    private final Paint eraserPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint eraserMaskPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint clearPaint = new Paint();
 
     private int brushColor = Color.RED;
@@ -53,8 +53,8 @@ public class PaintView extends View {
         super(context);
 
         brushPaint.setStyle(Paint.Style.FILL);
-        eraserPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-        eraserPaint.setStyle(Paint.Style.FILL);
+        eraserMaskPaint.setStyle(Paint.Style.FILL);
+        eraserMaskPaint.setColor(Color.WHITE);
         clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
     }
 
@@ -185,8 +185,10 @@ public class PaintView extends View {
     private void drawStamp(Canvas canvas, float x, float y) {
         float radius = brushSize / 2;
         if (isEraser) {
-            eraserPaint.setAlpha(255);
-            canvas.drawCircle(x, y, radius, eraserPaint);
+            // Draw opaque white on the paint layer to build an erase mask.
+            // commitStroke will use DST_OUT to subtract this mask from the canvas.
+            eraserMaskPaint.setAlpha((int) (brushAlpha * 40));
+            canvas.drawCircle(x, y, radius, eraserMaskPaint);
         } else {
             brushPaint.setColor(brushColor);
             brushPaint.setAlpha((int) (brushAlpha * 40)); // Low per-stamp alpha for smooth accumulation

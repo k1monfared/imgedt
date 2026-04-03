@@ -1,4 +1,4 @@
-package com.photoeditor.app;
+package com.imgedt.app;
 
 import android.Manifest;
 import android.app.Activity;
@@ -16,7 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.photoeditor.editor.EditorActivity;
+import com.imgedt.editor.EditorActivity;
 
 public class MainActivity extends Activity {
 
